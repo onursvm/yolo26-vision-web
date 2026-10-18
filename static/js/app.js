@@ -239,22 +239,22 @@ async function startCamera() {
 }
 
 function resizeCanvas() {
-  const w = videoEl.videoWidth || 640;
-  const h = videoEl.videoHeight || 360;
-  canvasEl.width = w;
-  canvasEl.height = h;
-  hiddenCanvas.width = 480;
-  hiddenCanvas.height = Math.round((h / w) * 480);
+  if (videoEl.videoWidth && videoEl.videoHeight) {
+    canvasEl.width = videoEl.videoWidth;
+    canvasEl.height = videoEl.videoHeight;
+    hiddenCanvas.width = 640; // optimized size for inference
+    hiddenCanvas.height = Math.round((videoEl.videoHeight / videoEl.videoWidth) * 640);
+  }
 }
 
-// --- Detection Loop (REST POST /api/detect with adaptive throttling) ---
+// --- Detection Loop (REST POST /api/detect) ---
 async function startDetectionLoop() {
   if (!state.isStreaming) return;
 
   async function loop() {
     if (!state.isStreaming) return;
 
-    if (!state.isProcessingFrame && videoEl.readyState >= 2) {
+    if (!state.isProcessingFrame && videoEl.readyState === videoEl.HAVE_ENOUGH_DATA) {
       state.isProcessingFrame = true;
       try {
         await captureAndDetectFrame();
@@ -265,10 +265,10 @@ async function startDetectionLoop() {
       }
     }
 
-    state.detectionLoopId = setTimeout(loop, 120);
+    state.detectionLoopId = requestAnimationFrame(loop);
   }
 
-  loop();
+  state.detectionLoopId = requestAnimationFrame(loop);
 }
 
 async function captureAndDetectFrame() {
@@ -455,7 +455,6 @@ function stopCamera() {
   state.isStreaming = false;
 
   if (state.detectionLoopId) {
-    clearTimeout(state.detectionLoopId);
     cancelAnimationFrame(state.detectionLoopId);
     state.detectionLoopId = null;
   }
