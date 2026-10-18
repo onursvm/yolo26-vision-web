@@ -101,6 +101,16 @@ COCO_TR = {
 }
 
 
+# ZeroGPU Desteği (Hugging Face Spaces için)
+try:
+    import spaces
+    gpu_decorator = spaces.GPU
+except Exception:
+    def gpu_decorator(fn):
+        return fn
+
+
+@gpu_decorator
 def process_frame(frame, conf_threshold=0.40):
     """Kare üzerinde YOLO26 nesne algılama çalıştırır ve sonuçları döndürür."""
     start_time = time.time()
