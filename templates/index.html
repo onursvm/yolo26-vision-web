@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YOLO26 Vision AI - Canlı Nesne Algılama</title>
+  <meta name="description" content="YOLO26 ve kamera kullanarak gerçek zamanlı yapay zeka nesne algılama uygulaması.">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+</head>
+
+<body>
+
+  <div class="container">
+    <!-- Header / Navbar -->
+    <header class="header">
+      <div class="logo-group">
+        <div class="logo-badge">Y26</div>
+        <div class="logo-text">
+          <h1 data-i18n="appTitle">YOLO26 Vision AI</h1>
+          <span>
+            <span class="live-pulse"></span>
+            <span data-i18n="live">CANLI</span> • YOLO26 Nano
+          </span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <!-- Language Toggle -->
+        <div class="switch-slider" id="lang-switch">
+          <button class="lang-btn active" data-lang="tr">TR</button>
+          <button class="lang-btn" data-lang="en">EN</button>
+        </div>
+
+        <!-- Dark / Light Theme Toggle -->
+        <div class="switch-slider" id="theme-switch">
+          <button class="theme-btn active" data-theme="dark" title="Karanlık Mod">🌙</button>
+          <button class="theme-btn" data-theme="light" title="Aydınlık Mod">☀️</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="main-grid">
+
+      <!-- Video Viewport Area -->
+      <section class="viewport-card">
+
+        <!-- Video Stage Screen -->
+        <div class="video-stage">
+          <!-- Top HUD Overlay -->
+          <div class="hud-overlay-top">
+            <div class="hud-badge fps">
+              <span>⚡</span>
+              <span id="hud-fps">0 FPS</span>
+            </div>
+            <div class="hud-badge latency">
+              <span>⏱️</span>
+              <span id="hud-latency">0 ms</span>
+            </div>
+          </div>
+
+          <!-- Video Element (for camera) -->
+          <video id="webcam-video" autoplay playsinline muted style="display: none;"></video>
+
+          <!-- Real-Time HUD Bounding Boxes Canvas -->
+          <canvas id="detection-canvas" style="display: none;"></canvas>
+
+          <!-- Idle Placeholder Screen -->
+          <div id="idle-screen" class="camera-idle-screen">
+            <div class="idle-icon-ring">📷</div>
+            <h2 class="idle-title" data-i18n="idleTitle">Kamera Beklemede</h2>
+            <p class="idle-subtitle" data-i18n="idleSubtitle">Canlı nesne algılamayı başlatmak için kamerayı açın.</p>
+            <button id="btn-start-camera" class="btn-primary" style="padding: 0.85rem 1.75rem; font-size: 1rem;">
+              <span>▶</span>
+              <span data-i18n="btnStartCamera">Kamerayı Başlat</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Video Control Toolbar -->
+        <div class="control-toolbar">
+          <div class="control-group">
+            <button id="btn-stop-camera" class="btn-secondary"
+              style="display: none; color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3);">
+              <span>⏹</span>
+              <span data-i18n="btnStopCamera">Durdur</span>
+            </button>
+
+            <button id="btn-snapshot" class="btn-secondary" style="display: none;">
+              <span>📸</span>
+              <span data-i18n="btnSnapshot">Fotoğraf Çek</span>
+            </button>
+
+            <!-- Camera Device Selector (front/rear or multiple cameras) -->
+            <select id="camera-select" class="camera-select" style="display: none;">
+              <option value="" data-i18n="cameraSelectDefault">Varsayılan Kamera</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <!-- Confidence Threshold Slider -->
+            <div class="confidence-control">
+              <label for="confidence-slider" data-i18n="confidenceLabel">Güven Eşiği</label>
+              <input type="range" id="confidence-slider" class="confidence-slider" min="20" max="90" value="40" step="5">
+              <span id="confidence-val">%40</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Sidebar: Intelligence & Detected Items -->
+      <aside class="sidebar">
+
+        <!-- Live Detections Card -->
+        <div class="sidebar-card">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>🎯</span>
+              <span data-i18n="cardDetectionsTitle">Algılanan Nesneler</span>
+            </h2>
+            <span id="count-badge" class="counter-pill">0</span>
+          </div>
+
+          <!-- Scrollable Detections List -->
+          <div id="detections-list" class="detections-list">
+            <div class="empty-detections">
+              <span style="font-size: 1.75rem;">🔍</span>
+              <span data-i18n="emptyDetections">Şu anda nesne algılanmadı</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance & System Metrics Card -->
+        <div class="sidebar-card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <span>⚡</span>
+              <span>Sistem & Model</span>
+            </h3>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-label" data-i18n="metricInference">Model Gecikmesi</span>
+              <span id="metric-inference" class="metric-value" style="color: var(--accent-cyan);">-- ms</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label" data-i18n="metricFps">FPS</span>
+              <span id="metric-fps" class="metric-value" style="color: var(--accent-emerald);">--</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label" data-i18n="metricCount">Toplam Nesne</span>
+              <span id="metric-count" class="metric-value">0</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label" data-i18n="metricModel">Model</span>
+              <span class="metric-value" style="font-size: 0.95rem; color: var(--accent-violet);">YOLO26 Nano</span>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+
+</html>

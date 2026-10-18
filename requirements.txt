@@ -1,0 +1,5 @@
+gradio
+ultralytics
+opencv-python-headless
+flask
+flask-socketio
