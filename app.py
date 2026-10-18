@@ -2,9 +2,15 @@ import base64
 import time
 import cv2
 import numpy as np
+import torch
+import gc
 from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 from ultralytics import YOLO
+
+# CPU and Memory optimizations for cloud instances (Render 512MB RAM)
+torch.set_num_threads(1)
+torch.set_num_interop_threads(1)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'yolo26-vision-secret'
@@ -12,9 +18,9 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # YOLO26 Modelini Yükle
-print("[INFO] YOLO26 modeli yükleniyor...")
+print("[INFO] YOLO26 modeli yükleniyor...", flush=True)
 model = YOLO("yolo26n.pt")
-print("[INFO] YOLO26 modeli hazır!")
+print("[INFO] YOLO26 modeli hazır!", flush=True)
 
 # 80 COCO Sınıfının Türkçe Çevirileri
 COCO_TR = {
@@ -104,12 +110,14 @@ COCO_TR = {
 def process_frame(frame, conf_threshold=0.40):
     """Kare üzerinde YOLO26 nesne algılama çalıştırır ve sonuçları döndürür."""
     start_time = time.time()
-    results = model(frame, conf=conf_threshold, verbose=False)
+    h, w = frame.shape[:2]
+
+    # Ultra hafif ve hızlı inferans (320px boyutu RAM'i yarı yarıya düşürür)
+    with torch.inference_mode():
+        results = model.predict(frame, conf=conf_threshold, verbose=False, imgsz=320)
     infer_time = (time.time() - start_time) * 1000
 
     detections = []
-    h, w = frame.shape[:2]
-
     for result in results:
         boxes = result.boxes
         if boxes is not None and len(boxes) > 0:
@@ -125,7 +133,6 @@ def process_frame(frame, conf_threshold=0.40):
                     'name': class_name,
                     'name_tr': class_name_tr,
                     'confidence': round(confidence, 3),
-                    'box': [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
                     'box_normalized': [
                         round(x1 / w, 4),
                         round(y1 / h, 4),
@@ -134,11 +141,11 @@ def process_frame(frame, conf_threshold=0.40):
                     ]
                 })
 
+    del results
     return {
         'detections': detections,
         'count': len(detections),
-        'inference_time_ms': round(infer_time, 1),
-        'frame_size': {'width': w, 'height': h}
+        'inference_time_ms': round(infer_time, 1)
     }
 
 
@@ -146,6 +153,12 @@ def process_frame(frame, conf_threshold=0.40):
 def index():
     """Ana web sayfası."""
     return render_template('index.html')
+
+
+@app.route('/api/health')
+def api_health():
+    """Sunucu sağlık kontrolü."""
+    return jsonify({'status': 'ok', 'model': 'yolo26n'})
 
 
 @app.route('/api/detect', methods=['POST'])
@@ -170,6 +183,7 @@ def api_detect():
 
         conf = float(data.get('confidence', 0.40))
         result = process_frame(frame, conf_threshold=conf)
+        del frame
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
