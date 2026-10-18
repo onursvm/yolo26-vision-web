@@ -17,10 +17,16 @@ app.config['SECRET_KEY'] = 'yolo26-vision-secret'
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# YOLO26 Modelini Yükle
-print("[INFO] YOLO26 modeli yükleniyor...", flush=True)
-model = YOLO("yolo26n.pt")
-print("[INFO] YOLO26 modeli hazır!", flush=True)
+# Model nesnesi (Lazy Loading - sunucunun anında açılmasını sağlar)
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        print("[INFO] YOLO26 modeli RAM'e yükleniyor...", flush=True)
+        _model = YOLO("yolo26n.pt")
+        print("[INFO] YOLO26 modeli hazır!", flush=True)
+    return _model
 
 # 80 COCO Sınıfının Türkçe Çevirileri
 COCO_TR = {
@@ -111,10 +117,11 @@ def process_frame(frame, conf_threshold=0.40):
     """Kare üzerinde YOLO26 nesne algılama çalıştırır ve sonuçları döndürür."""
     start_time = time.time()
     h, w = frame.shape[:2]
+    net = get_model()
 
     # Ultra hafif ve hızlı inferans (320px boyutu RAM'i yarı yarıya düşürür)
     with torch.inference_mode():
-        results = model.predict(frame, conf=conf_threshold, verbose=False, imgsz=320)
+        results = net.predict(frame, conf=conf_threshold, verbose=False, imgsz=320)
     infer_time = (time.time() - start_time) * 1000
 
     detections = []
@@ -125,7 +132,7 @@ def process_frame(frame, conf_threshold=0.40):
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 confidence = float(box.conf[0])
                 class_id = int(box.cls[0])
-                class_name = model.names[class_id]
+                class_name = net.names[class_id]
                 class_name_tr = COCO_TR.get(class_name, class_name)
 
                 detections.append({
@@ -158,7 +165,11 @@ def index():
 @app.route('/api/health')
 def api_health():
     """Sunucu sağlık kontrolü."""
-    return jsonify({'status': 'ok', 'model': 'yolo26n'})
+    return jsonify({
+        'status': 'ok',
+        'model': 'yolo26n',
+        'model_loaded': _model is not None
+    })
 
 
 @app.route('/api/detect', methods=['POST'])
