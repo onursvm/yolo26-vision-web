@@ -1,14 +1,3 @@
----
-title: YOLO26 Vision AI
-emoji: 🎯
-colorFrom: green
-colorTo: blue
-sdk: gradio
-sdk_version: 5.0.0
-app_file: app.py
-pinned: false
----
-
 # 🎯 YOLO26 Vision AI - Real-Time Web Object Detection
 
 A real-time, AI-powered object detection web application using the **YOLO26 model**, with live webcam and mobile camera support.

@@ -198,7 +198,7 @@ def handle_detect_frame(data):
 
 if __name__ == '__main__':
     import os
-    port = int(os.environ.get('PORT', 7860))
+    port = int(os.environ.get('PORT', 5000))
     print("\n" + "=" * 60)
     print("  🚀 YOLO26 Web Nesne Algılama Sunucusu Başlatılıyor...")
     print(f"  🌐 Yerel Adres : http://localhost:{port}")
